@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<!-- three.js library -->
+		<script src='three.js'></script>
+		<script src="OrbitControls.js"></script>
+		<script src="chromakey.js"></script>
+		<!-- Include a polyfill for ES6 Promises (optional) for IE11, UC Browser and Android browser support -->
+		<script src="https://cdn.jsdelivr.net/npm/promise-polyfill@8/dist/polyfill.js"></script>
+		<title>Holo Mini Sean</title>
+	</head>
+	<body style='margin : 0px; overflow: hidden; font-family: Monospace;'>
+		V 1.1.5
+		<script id="vertexShader" type="x-shader/x-vertex">
+
+			varying vec2 vUv;
+
+			void main()
+			{
+				vUv = uv;
+				vec4 mvPosition = modelViewMatrix * vec4( position, 1.0 );
+				gl_Position = projectionMatrix * mvPosition;
+			}
+
+		</script>
+
+		<script id="fragmentShader" type="x-shader/x-fragment">
+
+			uniform sampler2D texture;
+			uniform vec3 color;
+
+			varying vec2 vUv;
+
+			void main()
+			{
+				vec3 tColor = texture2D( texture, vUv ).rgb;
+				float a = (length(tColor - color) - 0.6) * 100.0;
+				gl_FragColor = vec4(tColor, a);
+			}
+		</script>
+		<script>
+		//////////////////////////////////////////////////////////////////////////////////
+		//		Init
+		//////////////////////////////////////////////////////////////////////////////////
+
+		// init renderer
+		var renderer	= new THREE.WebGLRenderer({
+			antialias	: true,
+			autoResize : true,
+			alpha: true
+		});
+		renderer.setClearColor(new THREE.Color('lightgrey'), 0)
+		renderer.setSize( window.innerWidth, window.innerHeight );
+		renderer.domElement.style.position = 'absolute'
+		renderer.domElement.style.top = '0px'
+		renderer.domElement.style.left = '0px'
+		document.body.appendChild( renderer.domElement );
+
+		// array of functions for the rendering loop
+		var onRenderFcts= [];
+
+		// init scene and camera
+
+		var scene = new THREE.Scene();
+		
+		//////////////////////////////////////////////////////////////////////////////////
+		//		Initialize a basic camera
+		//////////////////////////////////////////////////////////////////////////////////
+
+		// Create a camera
+		var camera = new THREE.PerspectiveCamera( 50, window.innerWidth / window.innerHeight, 1, 1500 );
+		camera.position.set( 0, 2, 10 );
+		scene.add(camera);
+
+		var light = new THREE.AmbientLight( 0xffffff ); // soft white light
+		scene.add( light );
+
+		// controls
+
+		controls = new THREE.OrbitControls( camera, renderer.domElement );
+
+		//controls.addEventListener( 'change', render ); // call this only in static scenes (i.e., if there is no animation loop)
+
+		controls.enableDamping = true; // an animation loop is required when either damping or auto-rotation are enabled
+		controls.dampingFactor = 0.25;
+
+		controls.screenSpacePanning = false;
+
+		controls.minDistance = 0;
+		controls.maxDistance = 500;
+
+		controls.maxPolarAngle = Math.PI / 2;
+
+		//////////////////////////////////////////////////////////////////////////////////
+		//		Add the objects in the scene
+		//////////////////////////////////////////////////////////////////////////////////
+
+		var raycaster = new THREE.Raycaster();
+		var mouse = new THREE.Vector2();
+		var isVideoPlay = false;
+
+		var all = new THREE.Group();
+		
+		var xsize = 1;
+		var ysize = xsize * 0.5625;
+
+		var geometry = new THREE.PlaneGeometry(xsize, ysize);
+
+		var movieMaterial = new ChromaKeyMaterial('yann.mp4', 1280, 720, 0xd432);
+		// green: 0xd432
+		// white: 0xffff
+
+		var videoPlane = new THREE.Mesh( geometry, movieMaterial );
+		<!-- videoPlane.position.y = 1 - 0.1; -->
+		videoPlane.scale.multiplyScalar(5);
+
+		all.add( videoPlane );	
+
+		onRenderFcts.push(function(delta, now){
+			movieMaterial.update();
+		})
+
+		all.scale.multiplyScalar(1.5);
+		scene.add(all);
+
+		//////////////////////////////////////////////////////////////////////////////////
+		//		render the whole thing on the page
+		//////////////////////////////////////////////////////////////////////////////////
+
+		// render the scene
+		onRenderFcts.push(function(){
+			renderer.render( scene, camera );
+		})
+
+		// run the rendering loop
+		var lastTimeMsec= null
+		requestAnimationFrame(function animate(nowMsec){
+			// keep looping
+			requestAnimationFrame( animate );
+			controls.update(); // only required if controls.enableDamping = true, or if controls.autoRotate = true
+			// measure time
+			lastTimeMsec	= lastTimeMsec || nowMsec-1000/60
+			var deltaMsec	= Math.min(200, nowMsec - lastTimeMsec)
+			lastTimeMsec	= nowMsec
+			// call each update function
+			onRenderFcts.forEach(function(onRenderFct){
+				onRenderFct(deltaMsec/1000, nowMsec/1000)
+			})
+		})
+
+		document.addEventListener("keyup", (event) => {
+			if(video.paused == true){
+				video.play();
+			}else{
+				video.pause();
+			}
+		});
+
+		</script>
+	</body>
+</html>
